@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const CreateGame = () => {
     const navigate = useNavigate();
+    const [quizTitle, setQuizTitle] = useState('שאלון חדש');
+    const [savedQuizzes, setSavedQuizzes] = useState([]);
+    const [activeQuizId, setActiveQuizId] = useState(null);
+
     const [questions, setQuestions] = useState([
         {
             question: '',
@@ -11,6 +15,53 @@ const CreateGame = () => {
             timeLimit: 20
         }
     ]);
+
+    useEffect(() => {
+        const saved = localStorage.getItem('kahoot_cl_quizzes');
+        if (saved) {
+            setSavedQuizzes(JSON.parse(saved));
+        }
+    }, []);
+
+    const handleSaveQuiz = () => {
+        if (!quizTitle.trim()) {
+            alert("נא להזין כותרת לשאלון");
+            return;
+        }
+
+        // Basic validation before saving
+        for (const q of questions) {
+            if (!q.question.trim()) {
+                alert("לא ניתן לשמור שאלון עם שאלות ריקות. נא למלא תוכן מינימלי בשאלות.");
+                return;
+            }
+        }
+
+        const idToSave = activeQuizId || Date.now();
+        const newQuiz = {
+            id: idToSave,
+            title: quizTitle,
+            questions: questions,
+            updatedAt: new Date().toISOString()
+        };
+
+        const updatedQuizzes = activeQuizId
+            ? savedQuizzes.map(q => q.id === activeQuizId ? newQuiz : q)
+            : [...savedQuizzes, newQuiz];
+
+        setSavedQuizzes(updatedQuizzes);
+        setActiveQuizId(idToSave);
+        localStorage.setItem('kahoot_cl_quizzes', JSON.stringify(updatedQuizzes));
+        alert("השאלון נשמר בהצלחה בדפדפן שלך!");
+    };
+
+    const loadSavedQuiz = (quiz) => {
+        if (window.confirm("האם לטעון את השאלון הזה? כל שינוי נוכחי שלא נשמר יאבד.")) {
+            setQuizTitle(quiz.title);
+            setQuestions(quiz.questions);
+            setActiveQuizId(quiz.id);
+        }
+    };
 
     const handleQuestionChange = (index, value) => {
         const newQs = [...questions];
@@ -81,7 +132,38 @@ const CreateGame = () => {
     return (
         <div className="flex flex-col items-center min-h-screen bg-gray-100 p-6 w-full pb-20">
             <div className="w-full max-w-4xl bg-white p-8 rounded-2xl shadow-xl">
-                <h1 className="text-4xl font-black mb-8 text-center text-indigo-800 drop-shadow-sm">יצירת שאלון משחק</h1>
+                <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4 border-b border-gray-100 pb-6 relative z-10">
+                    <input
+                        type="text"
+                        value={quizTitle}
+                        onChange={(e) => setQuizTitle(e.target.value)}
+                        placeholder="כותרת השאלון..."
+                        className="text-4xl font-black text-indigo-800 drop-shadow-sm bg-transparent border-b-4 border-transparent hover:border-indigo-100 focus:border-indigo-600 focus:outline-none text-center md:text-right w-full md:w-auto transition-all"
+                    />
+                    <div className="flex gap-3">
+                        {savedQuizzes.length > 0 && (
+                            <div className="relative group">
+                                <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-6 py-3 rounded-xl font-bold transition border border-gray-200">
+                                    החידונים שלי ▾
+                                </button>
+                                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-100 hidden group-hover:block z-50 overflow-hidden">
+                                    <div className="bg-gray-50 uppercase text-xs font-bold text-gray-500 p-3 text-right">שמורים בדפדפן</div>
+                                    <div className="max-h-60 overflow-y-auto">
+                                        {[...savedQuizzes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(q => (
+                                            <div key={q.id} onClick={() => loadSavedQuiz(q)} className="p-4 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-0 transition text-right">
+                                                <div className="font-bold text-gray-800 truncate text-lg">{q.title}</div>
+                                                <div className="text-sm text-gray-400 font-normal mt-1">{new Date(q.updatedAt).toLocaleString('he-IL')}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        <button onClick={handleSaveQuiz} className="bg-green-100 hover:bg-green-200 text-green-800 px-6 py-3 rounded-xl font-bold border border-green-300 transition shadow-sm flex items-center gap-2 active:scale-95">
+                            <span className="text-2xl">💾</span> שמירה
+                        </button>
+                    </div>
+                </div>
 
                 {questions.map((q, qIndex) => (
                     <div key={qIndex} className="mb-8 p-6 border-2 border-indigo-100 rounded-xl relative bg-white shadow-sm">
